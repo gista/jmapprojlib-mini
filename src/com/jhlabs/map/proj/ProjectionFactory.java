@@ -345,7 +345,7 @@ public class ProjectionFactory {
         try {
             String filePath = "/coordsys/" + file;
             InputStream is = ProjectionFactory.class.getResourceAsStream(filePath);
-            reader = new BufferedReader(new InputStreamReader(is));
+            reader = new BufferedReader(new InputStreamReader(is), 2048);
             StreamTokenizer t = new StreamTokenizer(reader);
             t.commentChar('#');
             t.ordinaryChars('0', '9');
