@@ -20,8 +20,6 @@ public class KrovakSk extends Projection {
 	public static final double s45 = 0.785398163397448;
 	public static final double s90 = 1.5707963267948959;
 
-	public boolean tczech = false;
-
 	// towgs84 parameters
 	double dx = 485.021;
 	double dy = 169.465;
@@ -52,9 +50,10 @@ public class KrovakSk extends Projection {
 	public void initialize() {
 		super.initialize();
 		// projectionLatitude is fi0
+		n0 = a * sqrt(1.0 - es) / (1.0 - es * pow(sin(projectionLatitude), 2)); // A
 		alfa = sqrt(1.0 + (es * pow(cos(projectionLatitude), 4)) / (1.0 - es)); // B
 		u0 = asin(sin(projectionLatitude) / alfa); // gama0
-		n0 = a * sqrt(1.0 - es) / (1.0 - es * pow(sin(projectionLatitude), 2)); // A
+		
 		double g = pow((1.0 + e * sin(projectionLatitude)) / (1.0 - e * sin(projectionLatitude)), alfa * e / 2.0);
 		k = tan(u0 / 2.0 + s45) / pow(tan(projectionLatitude / 2.0 + s45), alfa) * g; // t0
 	}
@@ -70,7 +69,6 @@ public class KrovakSk extends Projection {
 	 * @param xy
 	 */
 	public final Point2D transform(Point2D lp, Point2D xy) {
-		//long t1 = System.currentTimeMillis();
 		double phi, lam;
 		double ro0, gfi, u, v, s, d, eps, ro;
 
@@ -87,47 +85,33 @@ public class KrovakSk extends Projection {
 		
 		ro0 = scaleFactor * n0 / tan(s0);
 		gfi = pow(((1.0 + e * sin(phi)) / (1.0 - e * sin(phi))), (alfa * e / 2.0));
-
-		u = 2.0 * (atan(k * pow(tan(phi / 2.0 + s45), alfa) / gfi) - s45); // U
+		u = 2.0 * (atan(k * pow(tan(phi / 2.0 + s45), alfa) / gfi) - s45);
 		v = (projectionLongitude - lam) * alfa;
-
 		s = asin(cos(ad) * sin(u) + sin(ad) * cos(u) * cos(v));
 		d = asin(cos(u) * sin(v) / cos(s));
 		eps = n * d;
 		ro = ro0 * pow(tan(s0 / 2.0 + s45), n) / pow(tan(s / 2.0 + s45), n);
 
-		xy.y = ro * cos(eps);
-		xy.x = ro * sin(eps);
-		//xy.y = falseNorthing + ro * cos(eps);
-		//xy.x = falseEasting + ro * sin(eps);
+		xy.y = ro * cos(eps); // or falseNorthing + ro * cos(eps); ?
+		xy.x = ro * sin(eps); // or falseEasting + ro * sin(eps); ?
 		
-		if (!tczech) {
-			xy.y *= -1.0;
-			xy.x *= -1.0;
-		}
-		//System.out.println("projecting time: "+(System.currentTimeMillis()-t1));
+		xy.y *= -1.0;
+		xy.x *= -1.0;
 		return xy;
 	}
 
 	public final Point2D inverseTransform(Point2D xy, Point2D lp) {
-		double ro0, u, deltav, s, d, eps, ro, fi1, xy0;
+		double x, y;
+		double ro0, u, deltav, s, d, eps, ro, fi1;
 
+		x = -xy.x;
+		y = - xy.y;
+		
 		ro0 = scaleFactor * n0 / tan(s0);
-
-		xy0 = xy.x;
-		xy.x = xy.y;
-		xy.y = xy0;
-
-		if (!tczech) {
-			xy.x *= -1.0;
-			xy.y *= -1.0;
-		}
-
-		ro = sqrt(xy.x * xy.x + xy.y * xy.y);
-		eps = atan2(xy.y, xy.x);
+		ro = sqrt(x * x + y * y);
+		eps = atan2(x, y);
 		d = eps / sin(s0);
 		s = 2.0 * (atan(pow(ro0 / ro, 1.0 / n) * tan(s0 / 2.0 + s45)) - s45);
-
 		u = asin(cos(ad) * sin(s) - sin(ad) * cos(s) * cos(d));
 		deltav = asin(cos(s) * sin(d) / cos(u));
 
