@@ -332,7 +332,7 @@ public class ProjectionFactory {
             register("omerc", ObliqueMercatorProjection.class);
             register("tmerc", TransverseMercatorProjection.class);
             register("utm", TransverseMercatorProjection.class);
-            register("krovak", Krovak.class);
+            register("krovak", KrovakSk.class);
         } catch (InstantiationException ex) {
             Logger.getLogger(ProjectionFactory.class.getName()).log(Level.SEVERE, null, ex);
         } catch (IllegalAccessException ex) {

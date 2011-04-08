@@ -9,13 +9,12 @@ import static java.lang.Math.atan;
 import static java.lang.Math.sqrt;
 import static java.lang.Math.pow;
 import static java.lang.Math.abs;
-import static java.lang.Math.toRadians;
-import static java.lang.Math.toDegrees;
 
 import com.jhlabs.geom.Point2D;
 import com.jhlabs.geom.Point3D;
+import com.jhlabs.map.Ellipsoid;
 
-public class Krovak extends Projection {
+public class KrovakSk extends Projection {
 
 	static double SEC_TO_RAD = 4.84813681109535993589914102357e-6;
 
@@ -34,7 +33,12 @@ public class Krovak extends Projection {
 
 	private Point3D wgs_xyz = new Point3D();
 	private Point3D xyz_wgs = new Point3D();
-	
+
+
+	public KrovakSk() {
+		setEllipsoid(Ellipsoid.BESSEL);
+	}
+
 	/**
 	 * 
 	 * @param lp
@@ -48,8 +52,8 @@ public class Krovak extends Projection {
 		double gfi, u, fi0, v, s, d, eps, ro;
 		double phi, lam;
 		
-		phi = toRadians(lp.y);
-		lam = toRadians(lp.x);
+		phi = lp.y*DTR;
+		lam = lp.x*DTR;
 
 		BLH_xyz(new Point3D(lam, phi, 0), wgs_xyz);
 		transform(wgs_xyz);
@@ -183,16 +187,16 @@ public class Krovak extends Projection {
 		lp.x = projectionLongitude - deltav / alfa;
 
 		fi1 = u;
-		int ok = 0;
+		boolean ok = false;
 		do {
 			lp.y = 2.0 * (atan(pow(k, -1.0 / alfa) * pow(tan(u / 2.0 + s45), 1.0 / alfa)
 					* pow((1.0 + e * sin(fi1)) / (1.0 - e * sin(fi1)), e / 2.0)) - s45);
 
 			if (abs(fi1 - lp.y) < 0.000000000000001) {
-				ok = 1;
+				ok = true;
 			}
 			fi1 = lp.y;
-		} while (ok == 0);
+		} while (!ok);
 
 		double f1, x1, y1, z1, x2, y2, z2;
 		a = 6377397.15508;
@@ -223,26 +227,50 @@ public class Krovak extends Projection {
 		lp.x = 2*atan(y2/(p+x2));
 		//H = sqrt(1+t*t)*(p-a/sqrt(1+(1-e2)*t*t));
 		
-		lp.x = toDegrees(lp.x);
-		lp.y = toDegrees(lp.y);
+		lp.x *= RTD;
+		lp.y *= RTD;
 		return lp;
 	}
 
+	public boolean hasInverse() {
+		return true;
+	}
+
+	public boolean isConformal() {
+		return true;
+	}
+
 	public static void main(String[] args) {
-		Krovak krov = new Krovak();
+		KrovakSk krov = new KrovakSk();
 		krov.setScaleFactor(0.9999);
 		krov.setProjectionLatitude(0.86393797973719311);
 		krov.setProjectionLongitude(0.43342343091192509);
-		
+		System.out.println(krov.getEllipsoid());
 		Point2D wgsPos = new Point2D(21.23886386, 49.00096926);
 		Point2D out = new Point2D();
 		krov.transform(wgsPos, out);
-		//krov.transform(new Point2D(16.849771965029522, 50.209011566079397), out);
+		krov.transform(new Point2D(16.849771965029522, 50.209011566079397), out);
 		System.out.println(wgsPos);
 		System.out.println(out);
 		
 		Point2D xy = new Point2D();
 		krov.inverseTransform(out, xy);
 		System.out.println(xy);
+		
+		
+		Projection merc = ProjectionFactory.getNamedPROJ4CoordinateSystem("epsg:900913");
+		Point2D p = new Point2D();
+		Point2D o = new Point2D();
+		krov.inverseTransform(new Point2D(-269351, -1215000), p);
+		merc.transform(p, o);
+		System.out.println(o);
+		krov.inverseTransform(new Point2D(-255368, -1202791), p);
+		merc.transform(p, o);
+		System.out.println(o);
+		
+		System.out.println("merc -> krov");
+		merc.inverseTransform(new Point2D(2351125, 6264883), p);
+		krov.transform(p, o);
+		System.out.println(o);
 	}
 }
