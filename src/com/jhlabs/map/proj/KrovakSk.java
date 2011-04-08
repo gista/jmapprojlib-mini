@@ -35,7 +35,7 @@ public class KrovakSk extends Projection {
 	private double alfa; // B
 	private double u0;   // gama0
 	private double k;    // t0
-	private double s0 = 1.37008346281555; // phi1
+	private double s0 = 1.37008346281555; // phi1 (Latitude of pseudo standard parallel 78° 30'00" N)
 	private double n = sin(s0); // n
 	private double ad = s90 - 1.04216856380474; //(true) azimuth of initial line passing through the projection center
 
@@ -50,7 +50,7 @@ public class KrovakSk extends Projection {
 	public void initialize() {
 		super.initialize();
 		// projectionLatitude is fi0
-		n0 = a * sqrt(1.0 - es) / (1.0 - es * pow(sin(projectionLatitude), 2)); // A
+		n0 = sqrt(1.0 - es) / (1.0 - es * pow(sin(projectionLatitude), 2)); // A (a=1)
 		alfa = sqrt(1.0 + (es * pow(cos(projectionLatitude), 4)) / (1.0 - es)); // B
 		u0 = asin(sin(projectionLatitude) / alfa); // gama0
 		
@@ -58,9 +58,6 @@ public class KrovakSk extends Projection {
 		k = tan(u0 / 2.0 + s45) / pow(tan(projectionLatitude / 2.0 + s45), alfa) * g; // t0
 	}
 
-	public final Point2D project(double lam, double phi, Point2D xy) {
-		return transform(new Point2D(lam*RTD, phi*RTD), xy);
-	}
 	/**
 	 * 
 	 * @param lp
@@ -68,25 +65,21 @@ public class KrovakSk extends Projection {
 	 *            y - latitude (phi)
 	 * @param xy
 	 */
-	public final Point2D transform(Point2D lp, Point2D xy) {
-		double phi, lam;
+	public final Point2D project(double lam, double phi, Point2D xy) {
 		double ro0, gfi, u, v, s, d, eps, ro;
 
-		lam = lp.x*DTR;
-		phi = lp.y*DTR;
-
 		// apply towgs84 datum shift
-		lph.set(lam, phi, 0);
+		lph.set(lam + projectionLongitude, phi, 0);
 		Ellipsoid.WGS_1984.toGeocentric(lph, xyz);
 		shiftDatum(xyz);
 		ellipsoid.toGeodetic(xyz, lph);
-		lam = lph.x;
+		lam = lph.x - projectionLongitude;
 		phi = lph.y;
 		
 		ro0 = scaleFactor * n0 / tan(s0);
 		gfi = pow(((1.0 + e * sin(phi)) / (1.0 - e * sin(phi))), (alfa * e / 2.0));
 		u = 2.0 * (atan(k * pow(tan(phi / 2.0 + s45), alfa) / gfi) - s45);
-		v = (projectionLongitude - lam) * alfa;
+		v = - lam * alfa;
 		s = asin(cos(ad) * sin(u) + sin(ad) * cos(u) * cos(v));
 		d = asin(cos(u) * sin(v) / cos(s));
 		eps = n * d;
@@ -100,12 +93,11 @@ public class KrovakSk extends Projection {
 		return xy;
 	}
 
-	public final Point2D inverseTransform(Point2D xy, Point2D lp) {
-		double x, y;
+	public final Point2D projectInverse(double x, double y, Point2D lp) {
 		double ro0, u, deltav, s, d, eps, ro, fi1;
 
-		x = -xy.x;
-		y = - xy.y;
+		x = -x;
+		y = -y;
 		
 		ro0 = scaleFactor * n0 / tan(s0);
 		ro = sqrt(x * x + y * y);
@@ -134,8 +126,8 @@ public class KrovakSk extends Projection {
 		ellipsoid.toGeocentric(lph, xyz);
 		inverseShiftDatum(xyz);
 		Ellipsoid.WGS_1984.toGeodetic(xyz, lph);
-		lp.x = lph.x * RTD;
-		lp.y = lph.y * RTD;
+		lp.x = lph.x - projectionLongitude;
+		lp.y = lph.y;
 		return lp;
 	}
 
