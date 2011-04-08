@@ -31,9 +31,8 @@ public class KrovakSk extends Projection {
 
 	double m = 0.0;
 
-	private Point3D wgs_xyz = new Point3D();
-	private Point3D xyz_wgs = new Point3D();
-
+	private Point3D lph = new Point3D();
+	private Point3D xyz = new Point3D();
 
 	public KrovakSk() {
 		setEllipsoid(Ellipsoid.BESSEL);
@@ -55,12 +54,14 @@ public class KrovakSk extends Projection {
 		phi = lp.y*DTR;
 		lam = lp.x*DTR;
 
-		BLH_xyz(new Point3D(lam, phi, 0), wgs_xyz);
-		transform(wgs_xyz);
-		xyz_BLH(wgs_xyz, xyz_wgs);
-		phi = xyz_wgs.y;
-		lam = xyz_wgs.x;
-
+		// apply towgs84 datum shift
+		lph.set(lam, phi, 0);
+		Ellipsoid.WGS_1984.toGeocentric(lph, xyz);
+		shiftDatum(xyz);
+		ellipsoid.toGeodetic(xyz, lph);
+		phi = lph.y;
+		lam = lph.x;
+		
 		s45 = 0.785398163397448;
 		s90 = 2 * s45;
 		fi0 = projectionLatitude;//phi0;
@@ -104,43 +105,21 @@ public class KrovakSk extends Projection {
 		return xy;
 	}
 
-	// vypocet pravouhlych souradnic z geodetickych souradnic
-	private void BLH_xyz(Point3D lph, Point3D xyz) {
-		double a = 6378137.0;
-		double f1 = 298.257223563;
-
-		double ro, e2;
-		e2 = 1.0 - pow(1.0 - 1.0 / f1, 2);
-		ro = a / sqrt(1.0 - e2 * pow(sin(lph.y), 2));
-		xyz.x = (ro + lph.z) * cos(lph.y) * cos(lph.x);
-		xyz.y = (ro + lph.z) * cos(lph.y) * sin(lph.x);
-		xyz.z = ((1.0 - e2) * ro + lph.z) * sin(lph.y);
-	}
-
-	private void transform(Point3D xyz) {
+	private void shiftDatum(Point3D xyz) {
 		double s = (-m / 1000000.0) + 1.0;
 		double x2 = -dx + s * ( xyz.x    + rz*xyz.y - ry*xyz.z);
 		double y2 = -dy + s * (-rz*xyz.x + xyz.y    + rx*xyz.z);
 		double z2 = -dz + s * ( ry*xyz.x - rx*xyz.y + xyz.z);
 		xyz.set(x2, y2, z2);
 	}
-	
-	// vypocet geodetickych souradnic z pravouhlych souradnic
-	private void xyz_BLH(Point3D xyz, Point3D lph) {
-		double a = 6377397.15508; // parametry Besselova elipsoidu
-		double f1 = 299.152812853;
-		double ab, e2, th, st, ct, p, t;
-		ab = f1 / (f1 - 1.0);
-		p = sqrt(pow(xyz.x, 2) + pow(xyz.y, 2));
-		e2 = 1.0 - pow(1.0 - 1.0 / f1, 2);
-		th = atan(xyz.z * ab / p);
-		st = sin(th);
-		ct = cos(th);
-		t = (xyz.z + e2 * ab * a * pow(st, 3)) / (p - e2 * a * pow(ct, 3));
 
-		lph.y = atan(t);
-		lph.z = sqrt(1 + t * t) * (p - a / sqrt(1 + (1 - e2) * t * t));
-		lph.x = 2 * atan(xyz.y / (p + xyz.x));
+	private void inverseShiftDatum(Point3D xyz) {
+		double scale = (m / 1000000.0) + 1.0;
+		
+		double x2 = dx + scale * ( xyz.x    - rz*xyz.y + ry*xyz.z);
+		double y2 = dy + scale * ( rz*xyz.x + xyz.y    - rx*xyz.z);
+		double z2 = dz + scale * (-ry*xyz.x + rx*xyz.y + xyz.z);
+		xyz.set(x2, y2, z2);
 	}
 
 	public final Point2D inverseTransform(Point2D xy, Point2D lp) {
@@ -198,37 +177,13 @@ public class KrovakSk extends Projection {
 			fi1 = lp.y;
 		} while (!ok);
 
-		double f1, x1, y1, z1, x2, y2, z2;
-		a = 6377397.15508;
-		f1 = 299.152812853;
-		e2 = 1 - pow(1. - 1. / f1, 2);
-		ro = a / sqrt(1.0 - e2 * pow(sin(lp.y), 2));
-		double H = 0;
-		x1 = (ro+H) * cos(lp.y) * cos(lp.x);  
-		y1 = (ro+H) * cos(lp.y) * sin(lp.x);  
-		z1 = ((1-e2) * ro+H) * sin(lp.y);
-		
-		double scale = (m / 1000000.0) + 1.0;
-		
-		x2 = dx + scale * ( x1    - rz*y1 + ry*z1);
-		y2 = dy + scale * ( rz*x1 + y1    - rx*z1);
-		z2 = dz + scale * (-ry*x1 + rx*y1 + z1);
-		
-		a = 6378137.0;
-		f1 = 298.257223563;
-		double a_b = f1/(f1-1.0);
-		double p = sqrt(x2*x2+y2*y2);
-		e2 = 1.0 - pow(1.0 - 1.0 / f1, 2);
-		double theta = atan(z2 * a_b / p);
-		double st = sin(theta);
-		double ct = cos(theta);
-		double t = (z2+e2*a_b*a*pow(st, 3))/(p-e2*a*pow(ct, 3));
-		lp.y = atan(t);
-		lp.x = 2*atan(y2/(p+x2));
-		//H = sqrt(1+t*t)*(p-a/sqrt(1+(1-e2)*t*t));
-		
-		lp.x *= RTD;
-		lp.y *= RTD;
+		// apply towgs84 datum shift
+		lph.set(lp.x, lp.y, 0);
+		ellipsoid.toGeocentric(lph, xyz);
+		inverseShiftDatum(xyz);
+		Ellipsoid.WGS_1984.toGeodetic(xyz, lph);
+		lp.x = lph.x * RTD;
+		lp.y = lph.y * RTD;
 		return lp;
 	}
 
@@ -245,32 +200,19 @@ public class KrovakSk extends Projection {
 		krov.setScaleFactor(0.9999);
 		krov.setProjectionLatitude(0.86393797973719311);
 		krov.setProjectionLongitude(0.43342343091192509);
-		System.out.println(krov.getEllipsoid());
+
 		Point2D wgsPos = new Point2D(21.23886386, 49.00096926);
 		Point2D out = new Point2D();
 		krov.transform(wgsPos, out);
-		krov.transform(new Point2D(16.849771965029522, 50.209011566079397), out);
+		//krov.transform(new Point2D(16.849771965029522, 50.209011566079397), out);
 		System.out.println(wgsPos);
+		//System.out.println("EXPECTED: [-262731.724122, -1208353.150831]");
 		System.out.println(out);
 		
 		Point2D xy = new Point2D();
 		krov.inverseTransform(out, xy);
 		System.out.println(xy);
 		
-		
-		Projection merc = ProjectionFactory.getNamedPROJ4CoordinateSystem("epsg:900913");
-		Point2D p = new Point2D();
-		Point2D o = new Point2D();
-		krov.inverseTransform(new Point2D(-269351, -1215000), p);
-		merc.transform(p, o);
-		System.out.println(o);
-		krov.inverseTransform(new Point2D(-255368, -1202791), p);
-		merc.transform(p, o);
-		System.out.println(o);
-		
-		System.out.println("merc -> krov");
-		merc.inverseTransform(new Point2D(2351125, 6264883), p);
-		krov.transform(p, o);
-		System.out.println(o);
+		System.out.println(Ellipsoid.WGS_1984.poleRadius);
 	}
 }

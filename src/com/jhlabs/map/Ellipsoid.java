@@ -15,7 +15,14 @@ limitations under the License.
  */
 package com.jhlabs.map;
 
-import java.io.*;
+import static java.lang.Math.atan;
+import static java.lang.Math.cos;
+import static java.lang.Math.pow;
+import static java.lang.Math.sin;
+import static java.lang.Math.sqrt;
+import java.io.Serializable;
+
+import com.jhlabs.geom.Point3D;
 
 /**
  * A class representing a geographic ellipsoid.
@@ -31,7 +38,7 @@ public class Ellipsoid implements Cloneable, Serializable {
     public double eccentricity2 = 1.0;
     // From: USGS PROJ package.
     public final static Ellipsoid SPHERE = new Ellipsoid("sphere", 6371008.7714, 6371008.7714, 0.0, "Sphere");
-    public final static Ellipsoid BESSEL = new Ellipsoid("bessel", 6377397.155, 0.0, 299.1528128, "Bessel 1841");
+    public final static Ellipsoid BESSEL = new Ellipsoid("bessel", 6377397.15508, 0.0, 299.152812853, "Bessel 1841");
     public final static Ellipsoid CLARKE_1866 = new Ellipsoid("clrk66", 6378206.4, 6356583.8, 0.0, "Clarke 1866");
     public final static Ellipsoid CLARKE_1880 = new Ellipsoid("clrk80", 6378249.145, 0.0, 293.4663, "Clarke 1880 mod.");
     public final static Ellipsoid AIRY = new Ellipsoid("airy", 6377563.396, 6356256.910, 0.0, "Airy 1830");
@@ -103,11 +110,11 @@ public class Ellipsoid implements Cloneable, Serializable {
             double flattening = 1.0 / reciprocalFlattening;
             double f = flattening;
             eccentricity2 = 2 * f - f * f;
-            poleRadius = equatorRadius * Math.sqrt(1.0 - eccentricity2);
+            this.poleRadius = equatorRadius * (1.0 - f);
         } else {
             eccentricity2 = 1.0 - (poleRadius * poleRadius) / (equatorRadius * equatorRadius);
         }
-        eccentricity = Math.sqrt(eccentricity2);
+        eccentricity = sqrt(eccentricity2);
     }
 
     public Ellipsoid(String shortName, double equatorRadius, double eccentricity2, String name) {
@@ -152,13 +159,56 @@ public class Ellipsoid implements Cloneable, Serializable {
 
     public void setEccentricitySquared(double eccentricity2) {
         this.eccentricity2 = eccentricity2;
-        poleRadius = equatorRadius * Math.sqrt(1.0 - eccentricity2);
-        eccentricity = Math.sqrt(eccentricity2);
+        poleRadius = equatorRadius * sqrt(1.0 - eccentricity2);
+        eccentricity = sqrt(eccentricity2);
     }
 
     public double getEccentricitySquared() {
         return eccentricity2;
     }
+
+    /**
+     * Converts from geodetic to geocentric coordinates.
+     * @param lph position in geodetic coordinates
+     * 	<ul>
+     * 		<li> x - lambda (longitude) in radians </li>
+     * 		<li> y - phi (latitude) in radians </li>
+     * 		<li> z - height in meters </li>
+     * </ul>
+     * @param xyz converted (output) position in geocentric coordinates
+     */
+	public final void toGeocentric(Point3D lph, Point3D xyz) {
+		double ro = equatorRadius / sqrt(1.0 - eccentricity2 * pow(sin(lph.y), 2));
+		
+		xyz.x = (ro + lph.z) * cos(lph.y) * cos(lph.x);
+		xyz.y = (ro + lph.z) * cos(lph.y) * sin(lph.x);
+		xyz.z = ((1.0 - eccentricity2) * ro + lph.z) * sin(lph.y);
+	}
+
+	/**
+	 * Converts from geocentric to geodetic coordinates.
+	 * @param xyz position in geocentric coordinates
+	 * @param lph converted (output) position in geodetic coordinates
+     * 	<ul>
+     * 		<li> x - lambda (longitude) in radians </li>
+     * 		<li> y - phi (latitude) in radians </li>
+     * 		<li> z - height in meters </li>
+     * </ul>
+	 */
+	public final void toGeodetic(Point3D xyz, Point3D lph) {
+		double ab, th, st, ct, p, t;
+		ab = equatorRadius/poleRadius;
+		p = sqrt(pow(xyz.x, 2) + pow(xyz.y, 2));
+		
+		th = atan(xyz.z * ab / p);
+		st = sin(th);
+		ct = cos(th);
+		t = (xyz.z + eccentricity2 * ab * equatorRadius * pow(st, 3)) / (p - eccentricity2 * equatorRadius * pow(ct, 3));
+
+		lph.y = atan(t);
+		lph.z = sqrt(1 + t * t) * (p - equatorRadius / sqrt(1 + (1 - eccentricity2) * t * t));
+		lph.x = 2 * atan(xyz.y / (p + xyz.x));
+	}
 
     public String toString() {
         return name;
