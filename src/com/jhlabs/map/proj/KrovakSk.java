@@ -85,8 +85,8 @@ public class KrovakSk extends Projection {
 		eps = n * d;
 		ro = ro0 * pow(tan(s0 / 2.0 + s45), n) / pow(tan(s / 2.0 + s45), n);
 
-		xy.y = ro * cos(eps); // or falseNorthing + ro * cos(eps); ?
-		xy.x = ro * sin(eps); // or falseEasting + ro * sin(eps); ?
+		xy.y = ro * cos(eps);
+		xy.x = ro * sin(eps);
 		
 		xy.y *= -1.0;
 		xy.x *= -1.0;
@@ -184,9 +184,5 @@ public class KrovakSk extends Projection {
 		System.out.println(out);
 		krov.inverseTransform(out, xy);
 		System.out.println(xy);
-		
-		Projection proj = ProjectionFactory.getNamedPROJ4CoordinateSystem("epsg:102067");
-		System.out.println(proj);
-		proj.dump();
 	}
 }
