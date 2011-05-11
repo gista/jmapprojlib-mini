@@ -430,7 +430,7 @@ public class ProjectionFactory {
         try {
             int p = name.indexOf(':');
             if (p >= 0) {
-                return readProjectionFile(name.substring(0, p), name.substring(p + 1));
+                return readProjectionFile(name.substring(0, p).toLowerCase(), name.substring(p + 1));
             }
 
             for (int i = 0; i < files.length; i++) {
