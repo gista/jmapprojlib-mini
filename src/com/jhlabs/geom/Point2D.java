@@ -23,6 +23,12 @@ public final class Point2D {
 		this.y = p.y;
 	}
 
+	public final double distance(Point2D p2) {
+		double dx = x-p2.x;
+		double dy = y-p2.y;
+		return Math.sqrt(dx*dx + dy*dy);
+	}
+
 	@Override
 	public final String toString() {
 		return String.format("[%f, %f]", x, y);
